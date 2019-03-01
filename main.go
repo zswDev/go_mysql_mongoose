@@ -77,41 +77,6 @@ func (db *DB) Find(table string, query M, field string) []M {
 
 	return db.query(buf.String(), param)
 
-	// rows, err := db.conn.Query(sqlstr, param...)
-	// defer rows.Close()
-
-	// checkError(err)
-
-	// fields, err := rows.Columns()
-	// checkError(err)
-
-	// // 提取字段的方法
-	// vals := make([]sql.RawBytes, len(fields))
-	// scanArgs := make([]interface{}, len(fields))
-
-	// for i := range vals {
-	// 	scanArgs[i] = &vals[i]
-	// }
-
-	// for rows.Next() {
-	// 	err = rows.Scan(scanArgs...)
-	// 	checkError(err)
-
-	// 	m1 := make(M)
-	// 	for i, col := range vals {
-	// 		if col == nil {
-	// 			m1[fields[i]] = "NULL"
-	// 		} else {
-	// 			m1[fields[i]] = string(col)
-	// 		}
-	// 	}
-	// 	marr = append(marr, m1)
-	// }
-	// err = rows.Err()
-	// checkError(err)
-
-	// return marr
-
 }
 
 func (db *DB) Insert(table string, data M) []M {
