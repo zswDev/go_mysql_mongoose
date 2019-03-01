@@ -1,5 +1,8 @@
 "灵感来源于 mysql_mongoose" 
 
+
+example:
+
 ```golang	var db DB
 	db.Connetion(URL)
 	defer db.Close()
