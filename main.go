@@ -68,7 +68,6 @@ func (db *DB) Find(table string, query M, field string) []M {
 	param := make([]interface{}, 0)
 
 	addQuery(buf, &param, query)
-
 	return db.query(buf.String(), param)
 
 }
@@ -108,7 +107,6 @@ func (db *DB) Update(table string, query M, data M) []M {
 	buf.WriteString(field)
 
 	addQuery(buf, &param, query)
-
 	return db.exec(buf.String(), param)
 }
 
@@ -120,8 +118,8 @@ func (db *DB) Remove(table string, query M) []M {
 	buf.WriteString(table)
 
 	param := make([]interface{}, 0)
-	addQuery(buf, &param, query)
 
+	addQuery(buf, &param, query)
 	return db.exec(buf.String(), param)
 }
 
