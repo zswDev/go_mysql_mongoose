@@ -66,14 +66,8 @@ func (db *DB) Find(table string, query M, field string) []M {
 	buf.WriteString(" from ")
 	buf.WriteString(table)
 	param := make([]interface{}, 0)
-	if len(query) != 0 {
-		q_sql, q_param := decQuery(query, " and ")
 
-		buf.WriteString(" where ")
-		buf.WriteString(q_sql)
-
-		param = append(param, q_param...)
-	}
+	addQuery(buf, &param, query)
 
 	return db.query(buf.String(), param)
 
@@ -113,14 +107,7 @@ func (db *DB) Update(table string, query M, data M) []M {
 	field, param := decMod(data, "=?")
 	buf.WriteString(field)
 
-	if len(query) != 0 {
-		q_sql, q_param := decQuery(query, " and ")
-
-		buf.WriteString(" where ")
-		buf.WriteString(q_sql)
-
-		param = append(param, q_param...)
-	}
+	addQuery(buf, &param, query)
 
 	return db.exec(buf.String(), param)
 }
@@ -133,14 +120,7 @@ func (db *DB) Remove(table string, query M) []M {
 	buf.WriteString(table)
 
 	param := make([]interface{}, 0)
-	if len(query) != 0 {
-		q_sql, q_param := decQuery(query, " and ")
-
-		buf.WriteString(" where ")
-		buf.WriteString(q_sql)
-
-		param = append(param, q_param...)
-	}
+	addQuery(buf, &param, query)
 
 	return db.exec(buf.String(), param)
 }
@@ -233,6 +213,17 @@ func ifType(sql string) int {
 		}
 	}
 	return f_type
+}
+
+func addQuery(buf *bytes.Buffer, param *[]interface{}, query M) {
+	if len(query) != 0 {
+		q_sql, q_param := decQuery(query, " and ")
+
+		buf.WriteString(" where ")
+		buf.WriteString(q_sql)
+
+		*param = append(*param, q_param...)
+	}
 }
 
 func decMod(m M, fill string) (string, []interface{}) {
@@ -503,10 +494,13 @@ func main() {
 	fmt.Println(rows)
 }
 
-/*
 func auto_param(val ...interface{}) {
 	fmt.Println(val...)
 }
+func set(arr *[]interface{}) {
+	*arr = append(*arr, 1)
+}
+
 func main1() {
 	str1 := []rune(" select")
 	str2 := []rune("azAZ")
@@ -529,6 +523,10 @@ func main1() {
 		}
 	}
 	fmt.Println(f_type)
+
+	b := []interface{}{1, 2}
+	set(&b)
+	fmt.Println(b)
 
 	// auto_param(1, 23, "ab")
 
@@ -571,4 +569,4 @@ func main1() {
 	// 	fmt.Println("xx")
 	// }
 
-}*/
+}
