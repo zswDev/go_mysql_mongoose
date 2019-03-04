@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -215,7 +216,7 @@ func ifType(sql string) int {
 
 func addQuery(buf *bytes.Buffer, param *[]interface{}, query M) {
 	if len(query) != 0 {
-		q_sql, q_param := decQuery(query, " and ")
+		q_sql, q_param := decQuery(query, " and ", true)
 
 		buf.WriteString(" where ")
 		buf.WriteString(q_sql)
@@ -294,6 +295,17 @@ var arrSymbol = map[string]string{
 	"$or":  " or ",
 }
 
+var limitSymbol = map[string]string{
+	"$limit": " limit ",
+}
+var sortSymbol = map[string]string{
+	"$sort": " order by ",
+}
+var sortValues = map[int]string{
+	-1: " desc ",
+	1:  " asc ",
+}
+
 // 键值对解析为sql
 type M map[string]interface{} // map
 
@@ -303,7 +315,7 @@ func throw(k interface{}, v interface{}, t string) {
 	log.Fatalln("sql err: key=", k, ",val=", v, ",err=", t)
 }
 
-func decQuery(m M, logic string) (string, S) {
+func decQuery(m M, logic string, end bool) (string, S) {
 	buf := getBuf()
 	defer delBuf(buf)
 
@@ -311,137 +323,210 @@ func decQuery(m M, logic string) (string, S) {
 
 	param := make([]interface{}, 0)
 
+	var limit = ""
+	var sort = ""
+
 	var one = true
 	for k, v1 := range m { // 第一层
-		if one {
-			one = false
-		} else {
-			buf.WriteString(logic)
-		}
 
-		buf.WriteString(" ( ")
-
-		if twoSymbol[k] != "" { // 判断词
+		if sortSymbol[k] != "" { // S{s,1}
 			switch v1.(type) {
 			case S:
 			default:
 				throw(k, v1, "type")
 			}
-
 			v := v1.(S)
 			if len(v) != 2 {
-				throw(k, v, "len")
+				if len(v) != 1 {
+					throw(k, v1, "len")
+				} else {
+					v = append(v, 1) // 默认顺序
+				}
 			}
-
-			field := v[0].(string)
-			buf.WriteString(field)
-
-			buf.WriteString(twoSymbol[k])
-
-			switch v[1].(type) {
-			case S:
-				q := v[1].(S)
-				sign_len := len(q)
-				sign := getSign(sign_len)
-				buf.WriteString(sign)
-
-				param = append(param, q...)
-			default:
-				buf.WriteString("?")
-				param = append(param, v[1])
+			if sort == "" {
+				b1 := getBuf()
+				defer delBuf(b1)
+				b1.WriteString(sortSymbol[k])
+				b1.WriteString(v[0].(string))
+				t := v[1].(int)
+				if sortValues[t] == "" {
+					throw(k, v, "val")
+				}
+				b1.WriteString(sortValues[t])
+				sort = b1.String()
 			}
-		} else if arrSymbol[k] != "" { // 逻辑词
+		} else if limitSymbol[k] != "" {
+			b1 := getBuf()
+			defer delBuf(b1)
+
 			switch v1.(type) {
 			case S:
+			case int:
+				b1.WriteString(limitSymbol[k])
+				str_i := strconv.Itoa(v1.(int))
+				b1.WriteString(str_i)
 			default:
+
 				throw(k, v1, "type")
 			}
+			if b1.String() == "" {
+				v := v1.(S)
+				if len(v) != 2 {
+					throw(k, v1, "len")
+				}
+				if limit == "" {
 
-			v := v1.(S)
-			if len(v) == 0 {
-				throw(k, v, "len")
+					b1.WriteString(limitSymbol[k])
+
+					b1.WriteString(string(v[0].(int)))
+					b1.WriteString(" , ")
+					b1.WriteString(string(v[1].(int)))
+
+					limit = b1.String()
+				}
+			} else {
+				if limit == "" {
+					limit = b1.String()
+				}
 			}
-			var first = true
-			for _, m1 := range v {
-				switch m1.(type) {
+		} else {
+			if one {
+				one = false
+			} else {
+				buf.WriteString(logic)
+			}
+
+			buf.WriteString(" ( ")
+
+			if twoSymbol[k] != "" { // 判断词
+				switch v1.(type) {
+				case S:
+				default:
+					throw(k, v1, "type")
+				}
+
+				v := v1.(S)
+				if len(v) != 2 {
+					throw(k, v, "len")
+				}
+
+				field := v[0].(string)
+				buf.WriteString(field)
+
+				buf.WriteString(twoSymbol[k])
+
+				switch v[1].(type) {
+				case S:
+					q := v[1].(S)
+					sign_len := len(q)
+					sign := getSign(sign_len)
+					buf.WriteString(sign)
+
+					param = append(param, q...)
+				default:
+					buf.WriteString("?")
+					param = append(param, v[1])
+				}
+			} else if arrSymbol[k] != "" { // 逻辑词
+				switch v1.(type) {
+				case S:
+				default:
+					throw(k, v1, "type")
+				}
+
+				v := v1.(S)
+				if len(v) == 0 {
+					throw(k, v, "len")
+				}
+				var first = true
+				for _, m1 := range v {
+					switch m1.(type) {
+					case M:
+					default:
+						throw(k, v1, "type")
+					}
+
+					n_sql, n_param := decQuery(m1.(M), " and ", false)
+					if first {
+						first = false
+					} else {
+						buf.WriteString(arrSymbol[k])
+					}
+					buf.WriteString(n_sql)
+					param = append(param, n_param...)
+				}
+			} else if threeSymbol[k] { // between ? and ?
+				switch v1.(type) {
+				case S:
+				default:
+					throw(k, v1, "type")
+				}
+
+				v := v1.(S)
+				if len(v) != 2 { // 判断操纵数
+					throw(k, v, "len")
+				}
+				field := v[0].(string)
+
+				buf.WriteString(field)
+
+				switch v[1].(type) {
+				case S:
+				default:
+					throw(k, v1, "type")
+				}
+
+				vals := v[1].(S) // 判断范围值
+				if len(vals) != 2 {
+					throw(k, v, "val")
+				}
+				buf.WriteString(threeValues[k][0])
+				buf.WriteString(" ? ")
+				buf.WriteString(threeValues[k][1])
+				buf.WriteString(" ? ")
+				param = append(param, vals...)
+			} else if oneSymbol[k] != "" {
+				switch v1.(type) {
+				case string:
+				default:
+					throw(k, v1, "type")
+				}
+
+				buf.WriteString(" ? ")
+				buf.WriteString(oneSymbol[k])
+
+				param = append(param, v1)
+			} else if onceSymbol[k] != "" {
+				switch v1.(type) {
 				case M:
 				default:
 					throw(k, v1, "type")
 				}
 
-				n_sql, n_param := decQuery(m1.(M), " and ")
-				if first {
-					first = false
-				} else {
-					buf.WriteString(arrSymbol[k])
-				}
+				buf.WriteString(onceSymbol[k])
+				n_sql, n_param := decQuery(v1.(M), " and ", false)
 				buf.WriteString(n_sql)
+
 				param = append(param, n_param...)
+			} else { // 普通 =
+				buf.WriteString(k)
+				buf.WriteString(" = ?")
+				param = append(param, v1)
 			}
-		} else if threeSymbol[k] { // between ? and ?
-			switch v1.(type) {
-			case S:
-			default:
-				throw(k, v1, "type")
-			}
-
-			v := v1.(S)
-			if len(v) != 2 { // 判断操纵数
-				throw(k, v, "len")
-			}
-			field := v[0].(string)
-
-			buf.WriteString(field)
-
-			switch v[1].(type) {
-			case S:
-			default:
-				throw(k, v1, "type")
-			}
-
-			vals := v[1].(S) // 判断范围值
-			if len(vals) != 2 {
-				throw(k, v, "val")
-			}
-			buf.WriteString(threeValues[k][0])
-			buf.WriteString(" ? ")
-			buf.WriteString(threeValues[k][1])
-			buf.WriteString(" ? ")
-			param = append(param, vals...)
-		} else if oneSymbol[k] != "" {
-			switch v1.(type) {
-			case string:
-			default:
-				throw(k, v1, "type")
-			}
-
-			buf.WriteString(" ? ")
-			buf.WriteString(oneSymbol[k])
-
-			param = append(param, v1)
-		} else if onceSymbol[k] != "" {
-			switch v1.(type) {
-			case M:
-			default:
-				throw(k, v1, "type")
-			}
-
-			buf.WriteString(onceSymbol[k])
-			n_sql, n_param := decQuery(v1.(M), " and ")
-			buf.WriteString(n_sql)
-
-			param = append(param, n_param...)
-		} else { // 普通 =
-			buf.WriteString(k)
-			buf.WriteString(" = ?")
-			param = append(param, v1)
+			buf.WriteString(" ) ")
 		}
-
-		buf.WriteString(" ) ")
 
 	}
 	buf.WriteString(" ) ")
-	//fmt.Println(buf.String(), param)
+	if end {
+		if sort != "" {
+			buf.WriteString(sort)
+		}
+		if limit != "" {
+			buf.WriteString(limit)
+		}
+	}
+	fmt.Println(buf.String(), param)
 	return buf.String(), param
 }
 
@@ -462,34 +547,37 @@ func main() {
 				"state": 1,
 			},
 		},
+		"$sort":  S{"id", -1},
+		"$limit": 1,
 	}, "id rank state name")
 	fmt.Println(rows)
 
-	rows = db.Insert("tests", M{
-		"rank":  1,
-		"state": 3,
-		"name":  "aab",
-	})
-	fmt.Println(rows)
+	/*
+		rows = db.Insert("tests", M{
+			"rank":  1,
+			"state": 3,
+			"name":  "aab",
+		})
+		fmt.Println(rows)
 
-	rows = db.Remove("tests", M{
-		"id": 14,
-	})
-	fmt.Println(rows)
+		rows = db.Remove("tests", M{
+			"id": 14,
+		})
+		fmt.Println(rows)
 
-	rows = db.Update("tests", M{
-		"id": 15,
-	}, M{
-		"name": "aabc",
-	})
-	fmt.Println(rows)
+		rows = db.Update("tests", M{
+			"id": 15,
+		}, M{
+			"name": "aabc",
+		})
+		fmt.Println(rows)
 
-	rows = db.Query(`
-		update tests
-		set name="xxxx"
-		where id=?
-	`, 1)
-	fmt.Println(rows)
+		rows = db.Query(`
+			update tests
+			set name="xxxx"
+			where id=?
+		`, 1)
+		fmt.Println(rows) */
 }
 
 func auto_param(val ...interface{}) {
@@ -553,7 +641,7 @@ func main1() {
 		"$null": "ax",
 		"$eq":   S{"1", "2"},
 	}
-	decQuery(m, " and ")
+	decQuery(m, " and ", true)
 
 	var str = "a b c d"
 	v := strings.Split(str, " ")

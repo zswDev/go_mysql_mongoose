@@ -18,6 +18,8 @@ example:
 				"state": 1,
 			},
 		},
+		"$sort":  S{"id", -1},
+		"$limit": 1,
 	}, "id rank state name")
 	fmt.Println(rows)
 
