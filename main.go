@@ -526,7 +526,7 @@ func decQuery(m M, logic string, end bool) (string, S) {
 			buf.WriteString(limit)
 		}
 	}
-	fmt.Println(buf.String(), param)
+	//fmt.Println(buf.String(), param)
 	return buf.String(), param
 }
 
@@ -553,32 +553,31 @@ func main() {
 	}, "id rank state name")
 	fmt.Println(rows)
 
-	/*
-		rows = db.Insert("tests", M{
-			"rank":  1,
-			"state": 3,
-			"name":  "aab",
-		})
-		fmt.Println(rows)
+	rows = db.Insert("tests", M{
+		"rank":  1,
+		"state": 3,
+		"name":  "aab",
+	})
+	fmt.Println(rows)
 
-		rows = db.Remove("tests", M{
-			"id": 14,
-		})
-		fmt.Println(rows)
+	rows = db.Remove("tests", M{
+		"id": 14,
+	})
+	fmt.Println(rows)
 
-		rows = db.Update("tests", M{
-			"id": 15,
-		}, M{
-			"name": "aabc",
-		})
-		fmt.Println(rows)
+	rows = db.Update("tests", M{
+		"id": 15,
+	}, M{
+		"name": "aabc",
+	})
+	fmt.Println(rows)
 
-		rows = db.Query(`
+	rows = db.Query(`
 			update tests
 			set name="xxxx"
 			where id=?
 		`, 1)
-		fmt.Println(rows) */
+	fmt.Println(rows)
 }
 
 func auto_param(val ...interface{}) {
