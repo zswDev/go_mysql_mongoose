@@ -59,8 +59,12 @@ func (db *DB) Find(table string, query M, field string) []M {
 	buf.WriteString("select ")
 
 	// field := "a b c d"
-	farr := strings.Split(field, " ")
-	field = strings.Join(farr, ",")
+	if field == "" {
+		farr := strings.Split(field, " ")
+		field = strings.Join(farr, ",")
+	} else {
+		field = " * "
+	}
 
 	buf.WriteString(field)
 
@@ -531,7 +535,7 @@ func decQuery(m M, logic string, end bool) (string, S) {
 }
 
 // example
-func main() {
+func main1() {
 	var db DB
 	db.Connetion(URL)
 	defer db.Close()
@@ -588,7 +592,7 @@ func set(arr *[]interface{}) {
 	*arr = append(*arr, 1)
 }
 
-func main1() {
+func main2() {
 	str1 := []rune(" select")
 	str2 := []rune("azAZ")
 	b1 := []byte("a")
